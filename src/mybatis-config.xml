@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+     <!-- 整合spring+mybatis
+           1.数据库的配置整合到spring中统一配置，在mybatis中不需要进行配置 
+           2.保留一下配置信息到mybatis全局配置中：
+             1).类型别名,typeAliases - 可以使用package进行优化
+             2).接口映射文件,mappers  - 可以使用package进行优化
+           3.检查与配置mapper.xml文件的配置信息，实现dao接口
+     -->
+     <typeAliases>
+	   <package name="com.neuedu.ssmdemo.bean"/>
+	 </typeAliases>
+    <!-- mappers配置的优化，mapper的配置有4种方法：  
+     -->
+	<mappers>
+	    <package name="com.neuedu.ssmdemo.mapper"/>
+	</mappers>
+
+</configuration>

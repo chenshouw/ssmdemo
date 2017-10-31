@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://java.sun.com/xml/ns/javaee"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+	id="WebApp_ID" version="3.0">
+	<display-name>ssmdemo</display-name>
+	<welcome-file-list>
+		<welcome-file>index.html</welcome-file>
+		<welcome-file>index.htm</welcome-file>
+		<welcome-file>index.jsp</welcome-file>
+		<welcome-file>default.html</welcome-file>
+		<welcome-file>default.htm</welcome-file>
+		<welcome-file>default.jsp</welcome-file>
+	</welcome-file-list>
+
+	<!-- 配置spring mvc框架： 
+	    1.配置springmvc配置文件的路径 
+	    2.配置一个spring 上下文环境监听器 - 用于加载和解析spring mvc配置文件 
+		3.配置一个spring中央控制器，用于拦截所有的spring请求，并由视图解析器返回内容 -->
+	<context-param>
+		<!-- 注意参数名称是一个固定值，spring静听器会默认读取该参数 -->
+		<param-name>contextConfigLocation</param-name>
+		<param-value>classpath*:applicationContext.xml</param-value>
+		<!-- 如果有多个配置文件，可以使用*号进行模糊匹配 或使用逗号进行分隔多个配置文件 -->
+		<!-- <param-value>classpath*:config/spring-*.xml</param-value> -->
+		<!-- <param-value>classpath*:config/spring-1.xml,config/spring-2.xml</param-value> -->
+		<!-- <param-value>/WEB-INF/applicationContext.xml</param-value> -->
+	</context-param>
+     
+     <!-- 配置spring上下文环境加载监听器 -->
+	<listener>
+		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+	</listener>
+	
+	<!-- 配置spring中央控制器 -->
+	<servlet>
+	   <servlet-name>springmvc</servlet-name>
+	   <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+	   <!-- DispatcherServlet是一个中央控制器类，也可以读取配置文件，加载spring运行环境 -->
+	   <init-param>
+	      <param-name>contextConfigLocation</param-name>
+	      <param-value>classpath*:applicationmvc.xml</param-value>
+	    </init-param>
+	    <!-- 配置servlet的加载级别，1为最高级别,级别高的先加载 -->
+	    <load-on-startup>1</load-on-startup>
+	</servlet>
+	<servlet-mapping>
+	  <servlet-name>springmvc</servlet-name>
+	  <!-- 所有请求以.action结尾的都是spring请求，.action后面可以跟参数列表 -->
+	  <url-pattern>*.action</url-pattern>
+	</servlet-mapping>
+
+</web-app>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="false"
+	xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-4.1.xsd 
+	http://www.springframework.org/schema/context 
+	http://www.springframework.org/schema/context/spring-context-4.1.xsd">
+     
+     <!-- 使用注解方式整合ssm框架代码时，需要配置组件扫描路径，spring工作时会读取扫描路径扫描组件 -->
+     <!--在xml配置了这个标签后，spring可以自动去扫描base-pack下面或者子包下面的java文件，
+                    如果扫描到有@Component @Controller @Service等这些注解的类，
+		则把这些类注册为bean如果配置了<context:component-scan>那么<context:annotation-config/>
+		标签就可以不用再xml中配置了，因为前者包含了后者。-->
+	<context:component-scan base-package="com.neuedu.ssmdemo.service"></context:component-scan>
+
+	<!-- 整合spring+mybatis 1.整合后，mybatis不再维护数据源信息，而是由spring进行维护 -->
+	<!-- 1. 数据源 : DriverManagerDataSource oracle -->
+	<!-- 读取配置文件 -->
+	<context:property-placeholder location="classpath:db.properties" />
+	<!-- 使用数据库连接池技术优化数据连接 -->
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource">
+		<property name="driverClassName" value="oracle.jdbc.driver.OracleDriver" />
+		<property name="url" value="jdbc:oracle:thin://localhost:1521/orcl" />
+		<property name="username" value="qxcms" />
+		<property name="password" value="123456" />
+		
+<!-- 		<property name="driverClassName" value="${jdbc.driver}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />  -->
+	</bean>
+
+	<!-- 2.配置mybatis的sqlSessionFactory -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<!-- 配置mybatis的session工厂使用spring的数据源 -->
+		<property name="dataSource" ref="dataSource"></property>
+		<!-- 关联mybatis核心配置文件 -->
+		<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+	</bean>
+
+     <!-- 3.配置mybatis的mapper接口扫描配置类，用于配置mapper.xml/接口所在的package包
+                      即：扫描mybatis的代理类所在的package
+      -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<!-- 批量扫描mapper,如果扫描多个包，每个包中间使用半角逗号分隔 -->
+		<!-- <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property> -->
+		<property name="basePackage" value="com.neuedu.ssmdemo.mapper" />
+	</bean> 
+</beans>

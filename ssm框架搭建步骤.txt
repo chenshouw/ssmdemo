@@ -1,0 +1,565 @@
+
+ 1.新建一个web工程，新建package包结构
+ 2.导入需要使用的框架的jar包，并添加对应的配置文件
+   mybatis
+   spring
+   junit
+   log4j
+   .....
+   spring+mybatis的整合包
+   
+   
+   -- mvc+三层结构
+   - 
+ 3.编写m数据模型
+  1).编写一个实体类与数据库的表形成对应关系
+      public class ProductVersion {
+	private String versionNo;
+	private Date produceDate;
+	private String productDesc;
+	
+	public ProductVersion() {
+		super();
+	}
+
+	public ProductVersion(String versionNo, Date produceDate, String productDesc) {
+		super();
+		this.versionNo = versionNo;
+		this.produceDate = produceDate;
+		this.productDesc = productDesc;
+	}
+
+	public String getVersionNo() {
+		return versionNo;
+	}
+
+	public void setVersionNo(String versionNo) {
+		this.versionNo = versionNo;
+	}
+
+	public Date getProduceDate() {
+		return produceDate;
+	}
+
+	public void setProduceDate(Date produceDate) {
+		this.produceDate = produceDate;
+	}
+
+	public String getProductDesc() {
+		return productDesc;
+	}
+
+	public void setProductDesc(String productDesc) {
+		this.productDesc = productDesc;
+	}
+
+}
+
+
+
+public class Pager implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1812404864698392867L;
+	private int page = 1;
+	private int size = 3;
+	private int total = 0;// 总记录数
+	private int pages = 0;// 总页数
+	private Map<String, String> conditions;//带参数的分页查询，使用conditions保存搜索条件
+
+	public Pager() {
+	}
+
+	public Pager(int page, int size) {
+		super();
+		this.page = page;
+		this.size = size;
+	}
+
+	public Map<String, String> getConditions() {
+		return conditions;
+	}
+
+	public void setConditions(Map<String, String> conditions) {
+		this.conditions = conditions;
+	}
+
+	public int getPage() {
+		return page;
+	}
+
+	public void setPage(int page) {
+		this.page = page;
+	}
+
+	public int getSize() {
+		return size;
+	}
+
+	public void setSize(int size) {
+		this.size = size;
+	}
+
+	public int getTotal() {
+		return total;
+	}
+
+	public void setTotal(int total) {
+		this.total = total;
+
+		this.pages = this.total % size == 0 ? this.total / size : this.total / size + 1;
+	}
+
+	public int getPages() {
+		return pages;
+	}
+
+	public int getStartIndex() {
+		return (page - 1) * size;
+	}
+
+	public int getEndIndex() {
+		return page * size;
+	}
+
+	public int getPrePage() {
+		int prePage = page - 1 < 1 ? 1 : page - 1;
+		return prePage;
+	}
+
+	public int getNextPage() {
+		int nextPage = page + 1 > pages ? pages : page + 1;
+		return nextPage;
+	}
+}
+  2).设计一个数据访问接口dao接口，定义数据库的操作
+	public interface ProductVersionMapper {
+	
+		List<ProductVersion> findAll();
+	
+		// 其它操作方法
+		public ProductVersion findById(String id);// 参数可类型以是基本数据类型或字符串
+	
+		public int addProductVersion(ProductVersion version);// 参数可以是对象或集合,数组
+	
+		public int deleteById(String id);
+	
+		public int editProductVersion(ProductVersion version);
+		
+		//根据用户输入的发布时间或版本描述信息查询版本记录
+		public List<ProductVersion> findByExample(Map<String, String> conditions);
+	public List<ProductVersion> findByExample2(ProductVersion version);
+	
+	//查询发布时间在某月后的版本记录
+	public List<ProductVersion> findByProduceDate(Map<String, String> conditions);
+	
+	//根据给定的一组记录编号，查询数据(批量新增，删除，修改，查询 )
+	public List<ProductVersion> findByIds(String[] ids);//数据，List，Set等
+	public List<ProductVersion> findByIds2(List<String> ids);
+	
+	//带条件分页查询
+	public List<ProductVersion> findByPager(Pager pager);
+}
+    
+  3).编写一个mapper映射文件，使用mybatis代理实现数据库操作
+    <?xml version="1.0" encoding="UTF-8"?>
+	<!-- 
+	     1.使用mybatis后，可以不编写自己的dao实现类，可以通过mybatis的代理类实现数据的操作
+	     2.使用mybatis代理类需要编写一个mybatis映射文件，
+	                 在映射文件中定义要实现的：1).数据访问接口，2).操作方法,3).操作所对应的sql ,4).操作所对应的参数
+	     3.mybatis工作时，会根据mapper映射文件的配置，完成数据库的操作，简化数据库编程
+	 -->
+	<!DOCTYPE mapper
+	  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	  <!-- namespace配置要实现的数据访问接口,一般的一个配置文件对应一个接口 -->
+	<mapper namespace="com.neuedu.ssmdemo.mapper.ProductVersionMapper"> 
+	
+	   <!-- 使用resultMap优化程序配置 -->
+		<resultMap type="ProductVersion" id="versionMap">
+		    <!-- id是主键列,column配置数据库表的列名，property配置类的属性名，javaType配置类属性的数据类型或类型别名 -->
+			<id column="version_no" javaType="string" property="versionNo"/>
+			<!-- result配置非主键列 ,column配置数据库表的列名，property配置和类的属性名-->
+			<result column="produce_date" javaType="date" property="produceDate"/>
+			<result column="product_desc" property="productDesc"/>
+		</resultMap>
+	    <!-- 1.使用select标签配置查询，
+	         2.id配置方法的名称，resultType返回值类
+	         3.在标签体内部，配置查询的sql语句
+	     -->
+	    <!-- 在进行查询时，可以是resultTye或resultMap配置 
+	        resultType="ProductVersion" - 当sql完成了列与属性的映射时，可以使用resultType配置
+	        resultMap="versionMap"   -当sql没有完成类与属性的映射时，可以是resultMap查找对应的resultMap配置
+	    --> 
+	    <select id="findAll" resultMap="versionMap">
+	      select * from product_version
+	    </select>
+	    
+	     <select id="findByProduceDate" parameterType="map"  resultMap="versionMap">
+	       <!-- 在sql拼接时：如果sql中包含有特殊符号，经常是大于号&gt;，小于号&lt;需要使用cdata标签进行转义或使用转义符号进行编写-->
+	       <!--  select * from product_version where <![CDATA[to_char(produce_date,'yyyymm')>= #{startTime}]]> -->
+	        select * from product_version where to_char(produce_date,'yyyymm')&gt;= #{startTime}
+	    </select>
+	    
+	    <!-- 带条件的分页查询 -->
+	    <select id="findByPager"  parameterType="Pager" resultMap="versionMap">
+	         select * from ( select v.*,rownum rn from product_version v where 
+	           <!-- conditions是Pager的Map属性集合 -->
+	           <!-- 从Pager对象中获取名为conditions的map集合属性， conditions.productDesc再使用productDesc key获取对应的value-->
+	           <if test="conditions!=null and conditions.productDesc!=null">
+				 product_desc like concat(concat('%',#{conditions.productDesc}),'%') and
+			    </if>
+			    
+			    <if test="conditions!=null and conditions.startTime!=null">
+			      produce_date >=to_date(#{conditions.startTime},'yyyymm') and
+			    </if>
+			    
+			    <!-- 小于号必须进行转义，大于号可以不转义也可以转义 -->
+	           rownum&lt;=#{endIndex}) where rn&gt;#{startIndex}
+	     </select>
+	     
+	    <select id="findByPager2"  parameterType="Pager" resultMap="versionMap">
+	         select * from ( select v.*,rownum rn from product_version v where 
+	           <!-- conditions是Pager的Map属性集合，判断集合是否为空 -->
+	           <if test="conditions!=null and conditions.size()>0">
+	             <foreach item="item" index="index" collection="conditions">
+	              product_desc like concat(concat('%',#{item}),'%') and 
+	             </foreach>
+			    </if>
+			    <!-- 小于号必须进行转义，大于号可以不转义也可以转义 -->
+	           rownum&lt;=#{endIndex}) where rn&gt;#{startIndex}
+	     </select>
+	     
+	    <select id="findByPager3"  parameterType="Pager" resultMap="versionMap">
+	         select * from ( select v.*,rownum rn from product_version v where 
+	           <!-- conditions是Pager的Map属性集合，判断集合是否为空 -->
+	           <if test="conditions!=null and conditions.size()>0">
+	             <!-- 从Pager对象中获取名为conditions的map集合属性， conditions.productDesc再使用productDesc key获取对应的value-->
+				 product_desc like concat(concat('%',#{conditions.productDesc}),'%') and
+			    </if>
+			    <!-- 小于号必须进行转义，大于号可以不转义也可以转义 -->
+	           rownum&lt;=#{endIndex}) where rn&gt;#{startIndex}
+	     </select>
+	    
+	    <!-- 批量操作 -->
+	     <select id="findByIds"  resultMap="versionMap">
+	       select * from product_version where version_no in 
+		       <foreach item="item" index="index" collection="array"
+			      open="(" separator="," close=")">
+			        #{item}
+			  </foreach>
+	     </select>
+	    
+	    <select id="findByIds2"  resultMap="versionMap">
+	       select * from product_version where version_no in 
+		       <foreach item="item" index="index" collection="list"
+			      open="(" separator="," close=")">
+			        #{item}
+			  </foreach>
+	     </select>
+	    
+	    <select id="findByExample2" parameterType="ProductVersion"  resultMap="versionMap">
+	         <!-- 使用where ,trim 解决动态sql的语法完整性问题  -->
+	        select * from product_version 
+	            <!-- where标签的作用：只有满足一个以上的条件才会添加where子句 -->
+	            <!-- trim便签的作用：trim元素的主要功能是可以在自己包含的内容前加上某些前缀，
+	                                        也可以在其后加上某些后缀，与之对应的属性是prefix和suffix；
+	                                        可以把包含内容的首部某些内容覆盖，即忽略，也可以把尾部的某些内容覆盖，
+	                                        对应的属性是prefixOverrides和suffixOverrides；正因为trim有这样的功能，
+	                                        所以我们也可以非常简单的利用trim来代替where元素的功能。 -->
+	            <trim prefix="WHERE" prefixOverrides="AND|OR">
+	              <if test="produceDate!=null">
+	                and to_char(produce_date,'yyyymm')=to_char(#{produceDate,jdbcType=TIMESTAMP},'yyyymm')   
+	             </if>
+	             
+	             <if test="productDesc!=null and productDesc!=''">
+				   and product_desc like concat(concat('%',#{productDesc}),'%')
+				  </if>
+				 </trim>
+				 
+	    </select>
+	    
+	    <select id="findByExample3" parameterType="ProductVersion"  resultMap="versionMap">
+	        <!-- 使用Date类型作为参数时，需要指定jdbcType类型 -->
+	         <!-- 动态sql编程时为了满足sql语法格式，可以使用默认满足的条件 1=1 进行占位,其它条件语句可以直接编写 -->
+	        select * from product_version where 1=1 
+	              <if test="produceDate!=null">
+	                and to_char(produce_date,'yyyymm')=to_char(#{produceDate,jdbcType=TIMESTAMP},'yyyymm')   
+	             </if>
+	             
+	             <if test="productDesc!=null and productDesc!=''">
+				   and product_desc like concat(concat('%',#{productDesc}),'%')
+				  </if>
+	    </select>
+	    
+	    <!-- 数据库时间的判断可以使用字符串形式，数值形式进行判断 -->
+	    <select id="findByExample" parameterType="map"  resultMap="versionMap">
+	     <bind name="pattern" value="'%' + _parameter.productDesc + '%'" />
+	        select * from product_version 
+	         where  to_char(produce_date,'yyyymm')=#{produceDate} 
+	                and product_desc like #{pattern}
+	    </select>
+	    
+	  <!--   <select id="findByExample" parameterType="map"  resultMap="versionMap">
+	        select * from product_version 
+	         where  to_char(produce_date,'yyyymm')=#{produceDate} 
+	                and product_desc like concat(concat('%',#{productDesc}),'%')
+	    </select> -->
+	    
+	    <!-- 只有一个参数时可以省略参数的类型 ,参数名称可以任意合法名称代替-->
+	    <select id="findById" parameterType="String"  resultType="ProductVersion">
+	    select version_no versionNo,produce_date produceDate,product_desc productDesc 
+	       from product_version where version_no=#{id}
+	    </select>
+	    
+	    <!-- 25分钟 -->
+	    <insert id="addProductVersion" parameterType="ProductVersion">
+	      insert into product_version(version_no,produce_date,product_desc) 
+	          values(#{versionNo},#{produceDate},#{productDesc})
+	    </insert>
+	   
+	    <delete id="deleteById" parameterType="String">
+	      delete from product_version where version_no=#{id}
+	    </delete>
+	    
+	    <update id="editProductVersion" parameterType="ProductVersion">
+	     update product_version set produce_date=#{produceDate},product_desc=#{productDesc}
+	          where version_no=#{versionNo}
+	    </update>
+	   
+	</mapper>
+  4).整合spring+mybatis -- 整合配置文件
+     <beans default-lazy-init="false"
+			xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+			xmlns:context="http://www.springframework.org/schema/context"
+			xsi:schemaLocation="http://www.springframework.org/schema/beans 
+			http://www.springframework.org/schema/beans/spring-beans-4.1.xsd 
+			http://www.springframework.org/schema/context 
+			http://www.springframework.org/schema/context/spring-context-4.1.xsd">
+		     
+		     <!-- 使用注解方式整合ssm框架代码时，需要配置组件扫描路径，spring工作时会读取扫描路径扫描组件 -->
+		     <!--在xml配置了这个标签后，spring可以自动去扫描base-pack下面或者子包下面的java文件，
+		                    如果扫描到有@Component @Controller @Service等这些注解的类，
+				则把这些类注册为bean如果配置了<context:component-scan>那么<context:annotation-config/>
+				标签就可以不用再xml中配置了，因为前者包含了后者。-->
+			<context:component-scan base-package="com.neuedu.ssmdemo.service"></context:component-scan>
+		
+			<!-- 整合spring+mybatis 1.整合后，mybatis不再维护数据源信息，而是由spring进行维护 -->
+			<!-- 1. 数据源 : DriverManagerDataSource oracle -->
+			<!-- 读取配置文件 -->
+			<context:property-placeholder location="classpath:db.properties" />
+			<!-- 使用数据库连接池技术优化数据连接 -->
+			<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource">
+				<property name="driverClassName" value="oracle.jdbc.driver.OracleDriver" />
+				<property name="url" value="jdbc:oracle:thin://localhost:1521/orcl" />
+				<property name="username" value="qxcms" />
+				<property name="password" value="123456" />
+				
+		<!-- 		<property name="driverClassName" value="${jdbc.driver}" />
+				<property name="url" value="${jdbc.url}" />
+				<property name="username" value="${jdbc.username}" />
+				<property name="password" value="${jdbc.password}" />  -->
+			</bean>
+		
+			<!-- 2.配置mybatis的sqlSessionFactory -->
+			<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+				<!-- 配置mybatis的session工厂使用spring的数据源 -->
+				<property name="dataSource" ref="dataSource"></property>
+				<!-- 关联mybatis核心配置文件 -->
+				<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+			</bean>
+		
+		     <!-- 3.配置mybatis的mapper接口扫描配置类，用于配置mapper.xml/接口所在的package包
+		                      即：扫描mybatis的代理类所在的package
+		      -->
+			<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+				<!-- 批量扫描mapper,如果扫描多个包，每个包中间使用半角逗号分隔 -->
+				<!-- <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property> -->
+				<property name="basePackage" value="com.neuedu.ssmdemo.mapper" />
+			</bean> 
+		</beans>
+  5).编写测试代码，测试dao数据访问接口
+    public class TestProductVersionMapper {
+		private Logger logger = Logger.getRootLogger();
+		private ApplicationContext context;
+		private SqlSessionFactory sesssionFactory;
+		private ProductVersionMapper mapper = null;
+		@Before
+		public void init(){
+		 String configLocation = "applicationContext.xml";
+		  context = new ClassPathXmlApplicationContext(configLocation);	 
+		  sesssionFactory = (SqlSessionFactory)context.getBean("sqlSessionFactory");
+		}
+		@Test
+		public void testFindAll(){
+			//得到mapper接口对象
+			mapper = sesssionFactory.openSession().getMapper(ProductVersionMapper.class);
+			List<ProductVersion> list = mapper.findAll();
+			for(ProductVersion version : list){
+				logger.info(version.getVersionNo()+""+version.getProduceDate());
+			}
+		}//end findAll
+	}
+  6).设计一个service业务操作接口，定义业务操作
+     public interface ProductVersionService {
+		public List<ProductVersion> findAll();
+	}
+     
+  7).编写一个业务实现类，实现业务接口 -- 整合spring+mybatis --  整合代码
+      @Service
+		public class ProductVersionServiceImpl implements ProductVersionService {
+			// 业务层依赖与dao层
+			// 依赖关系通过接口实现代码的解耦合，使用spring的依赖注入功能实现，
+			// @Autowired是使用自动注入的方式实现
+			@Autowired
+			private ProductVersionMapper versionMapper;
+		
+			@Override
+			public List<ProductVersion> findAll() {
+				return versionMapper.findAll();
+			}
+		
+		}
+  8).编写测试类，测试service业务操作接口
+     public class TestProductVersionService {
+		private Logger logger = Logger.getRootLogger();
+		private ApplicationContext context;
+		private ProductVersionService service = null;
+		@Before
+		public void init(){
+		 String configLocation = "applicationContext.xml";
+		  context = new ClassPathXmlApplicationContext(configLocation);	 
+		}
+		@Test
+		public void testFindAll(){
+			//得到service接口对象
+			service = context.getBean(ProductVersionService.class);
+			List<ProductVersion> list = service.findAll();
+			for(ProductVersion version : list){
+				logger.info(version.getVersionNo()+""+version.getProduceDate());
+			}
+		}//end findAll
+	}
+	     
+  
+  程序出错调试步骤：
+    1.查询异常信息，根据异常信息修改代码或配置
+    2.异常信息提示不足，则按照程序执行的流程进行检查配置或代码
+    3.配置文件检查流程：ApplicationContext.xml-->mybatis-config.xml-->mapper接口映射文件
+              代码检查流程：测试类--》service服务类(同时检查注解配置)--》dao接口
+    4.总结：把常见的异常及产生原因记录下来，做好笔记
+    
+4.spring mvc+spring的ss整合
+   1).编写一个spring mvc配置文件，配置mvc的基本设置
+     <?xml version="1.0" encoding="UTF-8"?>
+	<beans default-lazy-init="false"
+		xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:context="http://www.springframework.org/schema/context"
+		xsi:schemaLocation="http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans-4.1.xsd 
+		http://www.springframework.org/schema/context 
+		http://www.springframework.org/schema/context/spring-context-4.1.xsd">
+	    
+	    <!-- spring mvc的控制器类也是使用注解方式整合代码，使用组件扫描配置进行Contrallor package包的配置 -->
+		<context:component-scan base-package="com.neuedu.ssmdemo.contrallor"></context:component-scan>
+	      
+	    <!-- 配置spring视图解析器(渲染器)，用于返回各种视图文件给用户端：jsp，pdf,xml,excel,word,或其它模版文件... -->  
+	     <!-- the ResourceBundleViewResolver -->
+		<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		    <!-- basename属性用于配置需要由spring视图解析器配置的页面或模版 -->
+		   <!-- 配置jsp路径的前缀 -->
+			<property name="prefix" value="/pages/"/>
+			<!-- 配置jsp路径的后缀 -->
+			<property name="suffix" value=".jsp"/>
+		</bean>
+	</beans>
+   2).修改web.xml,整合servlet+springmvc  -- 整合配置文件
+       <!-- 配置spring mvc框架： 
+	    1.配置springmvc配置文件的路径 
+	    2.配置一个spring 上下文环境监听器 - 用于加载和解析spring mvc配置文件 
+		3.配置一个spring中央控制器，用于拦截所有的spring请求，并由视图解析器返回内容 -->
+		<context-param>
+			<!-- 注意参数名称是一个固定值，spring静听器会默认读取该参数 -->
+			<param-name>contextConfigLocation</param-name>
+			<param-value>classpath*:applicationContext.xml</param-value>
+			<!-- 如果有多个配置文件，可以使用*号进行模糊匹配 或使用逗号进行分隔多个配置文件 -->
+			<!-- <param-value>classpath*:config/spring-*.xml</param-value> -->
+			<!-- <param-value>classpath*:config/spring-1.xml,config/spring-2.xml</param-value> -->
+			<!-- <param-value>/WEB-INF/applicationContext.xml</param-value> -->
+		</context-param>
+	     
+	     <!-- 配置spring上下文环境加载监听器 -->
+		<listener>
+			<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+		</listener>
+		
+		<!-- 配置spring中央控制器 -->
+		<servlet>
+		   <servlet-name>springmvc</servlet-name>
+		   <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+		   <!-- DispatcherServlet是一个中央控制器类，也可以读取配置文件，加载spring运行环境 -->
+		   <init-param>
+		      <param-name>contextConfigLocation</param-name>
+		      <param-value>classpath*:applicationmvc.xml</param-value>
+		    </init-param>
+		    <!-- 配置servlet的加载级别，1为最高级别,级别高的先加载 -->
+		    <load-on-startup>1</load-on-startup>
+		</servlet>
+		<servlet-mapping>
+		  <servlet-name>springmvc</servlet-name>
+		  <!-- 所有请求以.action结尾的都是spring请求，.action后面可以跟参数列表 -->
+		  <url-pattern>*.action</url-pattern>
+		</servlet-mapping>
+   3).编写jsp文件，用于数据的显示，人机交互
+   4).编写控制类Contrallor
+   5). 整合控制器类和service业务层    -- 整合代码
+         @Controller//声明本类是一个控制器类
+		@RequestMapping("/productversion")//配置URL网址
+		public class ProductVersionContrallor {
+			//使用注解整合
+			@Autowired
+			private ProductVersionService productVersionService;
+			
+			@RequestMapping("/list")//访问地址：/productversion/list.action
+			public ModelAndView  list(){
+				List<ProductVersion> list  = productVersionService.findAll();
+				//ModelAndView是spring mvc的一个组件，用于设置页面的名称和传递数据到页面中，与servlet的request类似
+				//传递数据的默认作用域（范围）也是Request范围,默认是请求转发
+				ModelAndView view = new ModelAndView();
+				view.setViewName("list");//设置jsp页面的名称 - pages/list.jsp
+				view.addObject("versionList", list);
+				return view;
+			}
+		
+		}
+		  
+   6).在浏览器输入网站地址，测试mvc
+      http://localhost:8080/ssmdemo/productversion/list.action
+   7).修改jsp页面，显示数据或实现页面功能
+      <%@ page language="java" contentType="text/html; charset=UTF-8"
+	pageEncoding="UTF-8"%>
+		<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+		<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+		<html>
+		<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>产品版本列表</title>
+		</head>
+		<body>
+			<table>
+				<tr>
+				    <!-- 使用colspan合并列 -->
+					<td colspan="3">版本历史记录</td>
+				</tr>
+				<c:forEach items="${versionList}" var="version">
+					<tr>
+						<td>${version.versionNo }</td>
+						<td>${version.produceDate }</td>
+						<td>${version.productDesc }</td>
+					</tr>
+		        </c:forEach>
+			</table>
+		
+		</body>
+		</html>

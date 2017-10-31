@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+     1.使用mybatis后，可以不编写自己的dao实现类，可以通过mybatis的代理类实现数据的操作
+     2.使用mybatis代理类需要编写一个mybatis映射文件，
+                 在映射文件中定义要实现的：1).数据访问接口，2).操作方法,3).操作所对应的sql ,4).操作所对应的参数
+     3.mybatis工作时，会根据mapper映射文件的配置，完成数据库的操作，简化数据库编程
+ -->
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  <!-- namespace配置要实现的数据访问接口,一般的一个配置文件对应一个接口 -->
+<mapper namespace="com.neuedu.ssmdemo.mapper.ProductVersionMapper"> 
+
+   <!-- 使用resultMap优化程序配置 -->
+	<resultMap type="ProductVersion" id="versionMap">
+	    <!-- id是主键列,column配置数据库表的列名，property配置类的属性名，javaType配置类属性的数据类型或类型别名 -->
+		<id column="version_no" javaType="string" property="versionNo"/>
+		<!-- result配置非主键列 ,column配置数据库表的列名，property配置和类的属性名-->
+		<result column="produce_date" javaType="date" property="produceDate"/>
+		<result column="product_desc" property="productDesc"/>
+	</resultMap>
+    <!-- 1.使用select标签配置查询，
+         2.id配置方法的名称，resultType返回值类
+         3.在标签体内部，配置查询的sql语句
+     -->
+    <!-- 在进行查询时，可以是resultTye或resultMap配置 
+        resultType="ProductVersion" - 当sql完成了列与属性的映射时，可以使用resultType配置
+        resultMap="versionMap"   -当sql没有完成类与属性的映射时，可以是resultMap查找对应的resultMap配置
+    --> 
+    <select id="findAll" resultMap="versionMap">
+      select * from product_version
+    </select>
+    
+     <select id="findByProduceDate" parameterType="map"  resultMap="versionMap">
+       <!-- 在sql拼接时：如果sql中包含有特殊符号，经常是大于号&gt;，小于号&lt;需要使用cdata标签进行转义或使用转义符号进行编写-->
+       <!--  select * from product_version where <![CDATA[to_char(produce_date,'yyyymm')>= #{startTime}]]> -->
+        select * from product_version where to_char(produce_date,'yyyymm')&gt;= #{startTime}
+    </select>
+    
+    <!-- 带条件的分页查询 -->
+    <select id="findByPager"  parameterType="Pager" resultMap="versionMap">
+         select * from ( select v.*,rownum rn from product_version v where 
+           <!-- conditions是Pager的Map属性集合 -->
+           <!-- 从Pager对象中获取名为conditions的map集合属性， conditions.productDesc再使用productDesc key获取对应的value-->
+           <if test="conditions!=null and conditions.productDesc!=null">
+			 product_desc like concat(concat('%',#{conditions.productDesc}),'%') and
+		    </if>
+		    
+		    <if test="conditions!=null and conditions.startTime!=null">
+		      produce_date >=to_date(#{conditions.startTime},'yyyymm') and
+		    </if>
+		    
+		    <!-- 小于号必须进行转义，大于号可以不转义也可以转义 -->
+           rownum&lt;=#{endIndex}) where rn&gt;#{startIndex}
+     </select>
+     
+    <select id="findByPager2"  parameterType="Pager" resultMap="versionMap">
+         select * from ( select v.*,rownum rn from product_version v where 
+           <!-- conditions是Pager的Map属性集合，判断集合是否为空 -->
+           <if test="conditions!=null and conditions.size()>0">
+             <foreach item="item" index="index" collection="conditions">
+              product_desc like concat(concat('%',#{item}),'%') and 
+             </foreach>
+		    </if>
+		    <!-- 小于号必须进行转义，大于号可以不转义也可以转义 -->
+           rownum&lt;=#{endIndex}) where rn&gt;#{startIndex}
+     </select>
+     
+    <select id="findByPager3"  parameterType="Pager" resultMap="versionMap">
+         select * from ( select v.*,rownum rn from product_version v where 
+           <!-- conditions是Pager的Map属性集合，判断集合是否为空 -->
+           <if test="conditions!=null and conditions.size()>0">
+             <!-- 从Pager对象中获取名为conditions的map集合属性， conditions.productDesc再使用productDesc key获取对应的value-->
+			 product_desc like concat(concat('%',#{conditions.productDesc}),'%') and
+		    </if>
+		    <!-- 小于号必须进行转义，大于号可以不转义也可以转义 -->
+           rownum&lt;=#{endIndex}) where rn&gt;#{startIndex}
+     </select>
+    
+    <!-- 批量操作 -->
+     <select id="findByIds"  resultMap="versionMap">
+       select * from product_version where version_no in 
+	       <foreach item="item" index="index" collection="array"
+		      open="(" separator="," close=")">
+		        #{item}
+		  </foreach>
+     </select>
+    
+    <select id="findByIds2"  resultMap="versionMap">
+       select * from product_version where version_no in 
+	       <foreach item="item" index="index" collection="list"
+		      open="(" separator="," close=")">
+		        #{item}
+		  </foreach>
+     </select>
+    
+    <select id="findByExample2" parameterType="ProductVersion"  resultMap="versionMap">
+         <!-- 使用where ,trim 解决动态sql的语法完整性问题  -->
+        select * from product_version 
+            <!-- where标签的作用：只有满足一个以上的条件才会添加where子句 -->
+            <!-- trim便签的作用：trim元素的主要功能是可以在自己包含的内容前加上某些前缀，
+                                        也可以在其后加上某些后缀，与之对应的属性是prefix和suffix；
+                                        可以把包含内容的首部某些内容覆盖，即忽略，也可以把尾部的某些内容覆盖，
+                                        对应的属性是prefixOverrides和suffixOverrides；正因为trim有这样的功能，
+                                        所以我们也可以非常简单的利用trim来代替where元素的功能。 -->
+            <trim prefix="WHERE" prefixOverrides="AND|OR">
+              <if test="produceDate!=null">
+                and to_char(produce_date,'yyyymm')=to_char(#{produceDate,jdbcType=TIMESTAMP},'yyyymm')   
+             </if>
+             
+             <if test="productDesc!=null and productDesc!=''">
+			   and product_desc like concat(concat('%',#{productDesc}),'%')
+			  </if>
+			 </trim>
+			 
+    </select>
+    
+    <select id="findByExample3" parameterType="ProductVersion"  resultMap="versionMap">
+        <!-- 使用Date类型作为参数时，需要指定jdbcType类型 -->
+         <!-- 动态sql编程时为了满足sql语法格式，可以使用默认满足的条件 1=1 进行占位,其它条件语句可以直接编写 -->
+        select * from product_version where 1=1 
+              <if test="produceDate!=null">
+                and to_char(produce_date,'yyyymm')=to_char(#{produceDate,jdbcType=TIMESTAMP},'yyyymm')   
+             </if>
+             
+             <if test="productDesc!=null and productDesc!=''">
+			   and product_desc like concat(concat('%',#{productDesc}),'%')
+			  </if>
+    </select>
+    
+    <!-- 数据库时间的判断可以使用字符串形式，数值形式进行判断 -->
+    <select id="findByExample" parameterType="map"  resultMap="versionMap">
+     <bind name="pattern" value="'%' + _parameter.productDesc + '%'" />
+        select * from product_version 
+         where  to_char(produce_date,'yyyymm')=#{produceDate} 
+                and product_desc like #{pattern}
+    </select>
+    
+  <!--   <select id="findByExample" parameterType="map"  resultMap="versionMap">
+        select * from product_version 
+         where  to_char(produce_date,'yyyymm')=#{produceDate} 
+                and product_desc like concat(concat('%',#{productDesc}),'%')
+    </select> -->
+    
+    <!-- 只有一个参数时可以省略参数的类型 ,参数名称可以任意合法名称代替-->
+    <select id="findById" parameterType="String"  resultType="ProductVersion">
+    select version_no versionNo,produce_date produceDate,product_desc productDesc 
+       from product_version where version_no=#{id}
+    </select>
+    
+    <!-- 25分钟 -->
+    <insert id="addProductVersion" parameterType="ProductVersion">
+      insert into product_version(version_no,produce_date,product_desc) 
+          values(#{versionNo},#{produceDate},#{productDesc})
+    </insert>
+   
+    <delete id="deleteById" parameterType="String">
+      delete from product_version where version_no=#{id}
+    </delete>
+    
+    <update id="editProductVersion" parameterType="ProductVersion">
+     update product_version set produce_date=#{produceDate},product_desc=#{productDesc}
+          where version_no=#{versionNo}
+    </update>
+   
+</mapper>
